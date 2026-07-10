@@ -4,10 +4,14 @@ import Login from './components/Login';
 import Register from './components/Register';
 import AdminDashboard from './components/AdminDashboard';
 import UserDashboard from './components/UserDashboard';
+import Settings from './components/Settings';
+import Support from './components/Support';
 import ProtectedRoute from './components/ProtectedRoute';
+import { ThemeModeProvider } from './ThemeModeContext';
 
 function App() {
   return (
+    <ThemeModeProvider>
     <Router>
       <Routes>
         {/* This path="/" ensures Login shows first when you load the page */}
@@ -26,8 +30,21 @@ function App() {
             <UserDashboard />
           </ProtectedRoute>
         } />
+
+        <Route path="/settings" element={
+          <ProtectedRoute isAdmin={false}>
+            <Settings />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/support" element={
+          <ProtectedRoute isAdmin={false}>
+            <Support />
+          </ProtectedRoute>
+        } />
       </Routes>
     </Router>
+    </ThemeModeProvider>
   );
 }
 

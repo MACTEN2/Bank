@@ -64,14 +64,22 @@ async def withdraw_money(payload: dict, current_user: dict = Depends(get_current
 # 5. POST (TRANSFER) - Secure Peer-to-Peer
 @router.post("/transfer", status_code=200)
 async def transfer_money(payload: dict, current_user: dict = Depends(get_current_user)):
-    try:
-        from_account = await account_collection.find_one({"user_id": current_user["_id"]})
-        if not from_account:
-            raise HTTPException(status_code=404, detail="Your account was not found")
+    from_account = await account_collection.find_one({"user_id": current_user["_id"]})
+    if not from_account:
+        raise HTTPException(status_code=404, detail="Your account was not found")
 
-        to_id = payload.get("to_account_id") # This should be the recipient's Account ID
-        amount = payload.get("amount")
-        
-        return await AccountController.transfer(str(from_account["_id"]), to_id, amount)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    to_id = payload.get("to_account_id")  # This should be the recipient's Account ID
+    amount = payload.get("amount")
+
+    if not to_id or not ObjectId.is_valid(to_id):
+        raise HTTPException(status_code=400, detail="Invalid recipient account ID")
+
+    if str(from_account["_id"]) == str(to_id):
+        raise HTTPException(status_code=400, detail="You can't transfer to your own account")
+
+    try:
+        amount = float(amount)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Amount must be a number")
+
+    return await AccountController.transfer(str(from_account["_id"]), to_id, amount)

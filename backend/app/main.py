@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from app.routers import accounts, auth, admin, transactions
+from app.routers import accounts, auth, admin, transactions, tickets, goals
 from mangum import Mangum
 import traceback
 
@@ -20,7 +20,9 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"], # Adjust if your frontend runs on a different port
+    # Matches any localhost port so the frontend still works if 3000 is
+    # already taken by another project and react-scripts picks a different one.
+    allow_origin_regex=r"http://localhost:\d+",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -30,6 +32,8 @@ app.include_router(transactions.router, prefix="/api/transactions", tags=["Trans
 app.include_router(accounts.router, prefix="/api/accounts", tags=["Accounts"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(auth.router, prefix="/api/auth", tags=["Auth"]) # Add this line
+app.include_router(tickets.router, prefix="/api/tickets", tags=["Tickets"])
+app.include_router(goals.router, prefix="/api/goals", tags=["Goals"])
 
 @app.get("/")
 async def root():

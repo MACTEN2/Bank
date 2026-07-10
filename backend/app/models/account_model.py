@@ -2,7 +2,6 @@ from app.database import account_collection, transaction_collection
 from bson import ObjectId
 from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime, timezone
-from typing import Optional
 
 class AccountModel:
     @staticmethod
@@ -37,7 +36,9 @@ class UserSchema(BaseModel):
     email: EmailStr
     password: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    role: Optional[str] = "user"
+    # No client-settable role here on purpose — self-service registration must
+    # never be able to grant admin. New accounts always start as "user"; admin
+    # status can only be granted afterwards by an existing admin.
 
 class UserResponse(BaseModel):
     #Used to send user data back to the frontend without the password

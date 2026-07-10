@@ -12,3 +12,5 @@ database = client.bank_db
 user_collection = database.get_collection("users")
 account_collection = database.get_collection("accounts")
 transaction_collection = database.get_collection("transactions")
+ticket_collection = database.get_collection("tickets")
+goal_collection = database.get_collection("goals")

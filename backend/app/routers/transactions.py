@@ -5,31 +5,31 @@ from app.controllers.account_controller import AccountController
 
 router = APIRouter()
 
+@router.get("/me")
+async def get_my_transactions(current_user: dict = Depends(get_current_user)):
+    account = await account_collection.find_one({"user_id": current_user["_id"]})
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    return await AccountController.get_transactions(str(account["_id"]))
+
 @router.post("/deposit")
 async def deposit(payload: dict, current_user: dict = Depends(get_current_user)):
-    try:
-        amount = float(payload.get("amount", 0))
-        account = await account_collection.find_one({"user_id": current_user["_id"]})
-        if not account:
-            raise HTTPException(status_code=404, detail="Account not found")
+    amount = float(payload.get("amount", 0))
+    account = await account_collection.find_one({"user_id": current_user["_id"]})
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
 
-        # Use AccountController with string ID
-        await AccountController.deposit(str(account["_id"]), amount)
-        return {"status": "success"}
-    except Exception as e:
-        print(f"ERR: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    # Use AccountController with string ID
+    await AccountController.deposit(str(account["_id"]), amount)
+    return {"status": "success"}
 
 @router.post("/withdraw")
 async def withdraw(payload: dict, current_user: dict = Depends(get_current_user)):
-    try:
-        amount = float(payload.get("amount", 0))
-        account = await account_collection.find_one({"user_id": current_user["_id"]})
-        if not account or account.get("balance", 0) < amount:
-            raise HTTPException(status_code=400, detail="Insufficient funds")
+    amount = float(payload.get("amount", 0))
+    account = await account_collection.find_one({"user_id": current_user["_id"]})
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
 
-        await AccountController.withdraw(str(account["_id"]), amount)
-        return {"status": "success"}
-    except Exception as e:
-        print(f"ERR: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    await AccountController.withdraw(str(account["_id"]), amount)
+    return {"status": "success"}

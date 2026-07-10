@@ -1,17 +1,12 @@
 import api from './axiosConfig';
 
-export const getAccountDetails = (accountId) => {
-  return api.get(`/accounts/${accountId}`);
-};
+export const getMyAccount = () => api.get('/accounts/me');
 
-export const getTransactionHistory = (accountId) => {
-  return api.get(`/accounts/${accountId}/transactions`);
-};
+export const getMyTransactions = () => api.get('/transactions/me');
 
-export const depositMoney = (accountId, amount) => {
-  return api.post(`/accounts/${accountId}/deposit`, { amount });
-};
+export const depositMoney = (amount) => api.post('/transactions/deposit', { amount });
 
-export const withdrawMoney = (accountId, amount) => {
-  return api.post(`/accounts/${accountId}/withdraw`, { amount });
-};
+export const withdrawMoney = (amount) => api.post('/transactions/withdraw', { amount });
+
+export const transferMoney = (toAccountId, amount) =>
+  api.post('/accounts/transfer', { to_account_id: toAccountId, amount });

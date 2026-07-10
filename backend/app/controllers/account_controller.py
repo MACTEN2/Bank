@@ -7,8 +7,10 @@ class AccountController:
     async def deposit(acc_id, amount):
         if amount <= 0:
             raise HTTPException(status_code=400, detail="Amount must be positive")
-        
+
         account = await AccountModel.find_by_id(acc_id)
+        if account.get("status") == "frozen":
+            raise HTTPException(status_code=403, detail="This account is frozen and cannot process transactions")
         new_balance = account["balance"] + amount
         
         await AccountModel.update_balance(acc_id, new_balance)
@@ -23,6 +25,8 @@ class AccountController:
     @staticmethod
     async def withdraw(acc_id, amount):
         account = await AccountModel.find_by_id(acc_id)
+        if account.get("status") == "frozen":
+            raise HTTPException(status_code=403, detail="This account is frozen and cannot process transactions")
         if account["balance"] < amount:
             raise HTTPException(status_code=400, detail="Insufficient funds")
 
@@ -36,6 +40,35 @@ class AccountController:
         })
         return {"message": "success: Withdrawal successful", "balance": new_balance}
     
+    @staticmethod
+    async def admin_adjust(acc_id, amount, adjustment_type, reason):
+        """Admin-only manual balance correction. Bypasses the frozen-account
+        guard on purpose — freezing blocks the customer, not staff resolving
+        the case that caused the freeze (e.g. reversing a fraudulent charge)."""
+        if amount <= 0:
+            raise HTTPException(status_code=400, detail="Amount must be positive")
+        if adjustment_type not in ("credit", "debit"):
+            raise HTTPException(status_code=400, detail="type must be 'credit' or 'debit'")
+
+        account = await AccountModel.find_by_id(acc_id)
+        if not account:
+            raise HTTPException(status_code=404, detail="Account not found")
+
+        if adjustment_type == "debit" and account["balance"] < amount:
+            raise HTTPException(status_code=400, detail="Insufficient funds for this debit")
+
+        new_balance = account["balance"] + amount if adjustment_type == "credit" else account["balance"] - amount
+
+        await AccountModel.update_balance(acc_id, new_balance)
+        await AccountModel.create_transaction({
+            "account_id": account["_id"],
+            "txn_type": "admin_credit" if adjustment_type == "credit" else "admin_debit",
+            "amount": amount,
+            "reason": reason,
+            "created_at": datetime.now(timezone.utc)
+        })
+        return {"message": f"Account manually {adjustment_type}ed", "balance": new_balance}
+
     @staticmethod
     async def get_transactions(acc_id: str):
         # 1. Validation: Ensure account exists (Optional but Professional)
@@ -66,19 +99,6 @@ class AccountController:
         return account
     
 
-    @staticmethod
-    async def transfer(from_id: str, to_id: str, amount: float):
-        if amount <= 0:
-            raise HTTPException(status_code=400, detail="Transfer amount must be positive")
-        
-        # 1. Deduct from sender (Withdraw logic)
-        await AccountController.withdraw(from_id, amount)
-        
-        # 2. Add to receiver (Deposit logic)
-        await AccountController.deposit(to_id, amount)
-        
-        return {"message": f"Successfully transferred ${amount} to account {to_id}"}
-    
     @staticmethod
     async def transfer(from_id: str, to_id: str, amount: float):
         if amount <= 0:

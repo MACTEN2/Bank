@@ -59,6 +59,17 @@ Installation
     npm install
     npm start
 
+5.  Create the first admin (one-time): registration always creates a
+    regular "user" account — nobody can grant themselves admin over the
+    API. Seed the initial admin directly instead:
+
+    cd backend
+    python -m scripts.create_admin --name "Your Name" --email you@example.com --password "changeme123"
+
+    From there, that admin can promote anyone else to admin from the
+    Admin Dashboard's "Make Admin" button — the script shouldn't be
+    needed again.
+
 testing:
 export PYTHONPATH=$PYTHONPATH:. && ../venv/bin/python3 -m pytest -v tests/bank_test.py
 
