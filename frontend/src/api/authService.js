@@ -38,3 +38,5 @@ export const changePassword = (currentPassword, newPassword) =>
     current_password: currentPassword,
     new_password: newPassword,
   });
+
+export const getLoginHistory = () => api.get('/auth/login-history');

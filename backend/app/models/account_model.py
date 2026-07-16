@@ -20,10 +20,13 @@ class AccountModel:
         await transaction_collection.insert_one(txn_data)
 
     @staticmethod
-    async def get_txns_by_acc(acc_id):
+    async def get_txns_by_acc(acc_id, filters: dict = None, limit: int = 100):
         # Professional standard: Sort by newest first
-        cursor = transaction_collection.find({"account_id": ObjectId(acc_id)}).sort("created_at", -1)
-        return await cursor.to_list(length=100)
+        query = {"account_id": ObjectId(acc_id)}
+        if filters:
+            query.update(filters)
+        cursor = transaction_collection.find(query).sort("created_at", -1)
+        return await cursor.to_list(length=limit)
     
     @staticmethod
     async def find_by_id(acc_id: str):

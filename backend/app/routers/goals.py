@@ -3,6 +3,7 @@ from bson import ObjectId
 from datetime import datetime, timezone
 from app.database import goal_collection
 from app.utils.auth_utils import get_current_user
+from app.services.notifications import create_notification
 
 router = APIRouter()
 
@@ -66,6 +67,13 @@ async def contribute_to_goal(goal_id: str, payload: dict, current_user: dict = D
 
     new_saved = min(goal["saved_amount"] + amount, goal["target_amount"])
     await goal_collection.update_one({"_id": goal["_id"]}, {"$set": {"saved_amount": new_saved}})
+
+    if goal["saved_amount"] < goal["target_amount"] <= new_saved:
+        await create_notification(
+            current_user["_id"], "goal_milestone", "Savings goal reached!",
+            f"You've fully funded your \"{goal['name']}\" goal. Great work!"
+        )
+
     goal["saved_amount"] = new_saved
     return serialize_goal(goal)
 

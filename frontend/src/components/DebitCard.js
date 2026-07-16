@@ -1,6 +1,7 @@
 import React from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, Chip } from '@mui/material';
 import WifiIcon from '@mui/icons-material/Wifi';
+import LockIcon from '@mui/icons-material/Lock';
 
 const formatExpiry = (createdAt) => {
   const base = createdAt ? new Date(createdAt) : new Date();
@@ -10,7 +11,7 @@ const formatExpiry = (createdAt) => {
   return `${mm}/${yy}`;
 };
 
-const DebitCard = ({ account, holderName }) => {
+const DebitCard = ({ account, holderName, locked }) => {
   const last4 = (account?._id || '0000').slice(-4).toUpperCase();
 
   return (
@@ -21,7 +22,9 @@ const DebitCard = ({ account, holderName }) => {
         aspectRatio: '1.6 / 1',
         borderRadius: '20px',
         p: 2.5,
-        background: 'linear-gradient(135deg, #1a4388 0%, #0d2144 55%, #061126 100%)',
+        background: locked
+          ? 'linear-gradient(135deg, #4a4f57 0%, #2b2f36 55%, #14171b 100%)'
+          : 'linear-gradient(135deg, #1a4388 0%, #0d2144 55%, #061126 100%)',
         color: '#fff',
         display: 'flex',
         flexDirection: 'column',
@@ -29,12 +32,26 @@ const DebitCard = ({ account, holderName }) => {
         boxShadow: '0 12px 24px rgba(13,33,68,0.35)',
         position: 'relative',
         overflow: 'hidden',
+        filter: locked ? 'grayscale(0.4)' : 'none',
       }}
     >
       <Box sx={{
         position: 'absolute', top: -40, right: -40, width: 160, height: 160,
         borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.05)',
       }} />
+
+      {locked && (
+        <Chip
+          icon={<LockIcon sx={{ fontSize: 14, color: '#fff !important' }} />}
+          label="LOCKED"
+          size="small"
+          sx={{
+            position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%) rotate(-8deg)',
+            bgcolor: 'rgba(211,47,47,0.92)', color: '#fff', fontWeight: 700, letterSpacing: 1,
+            boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+          }}
+        />
+      )}
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <Typography sx={{ fontWeight: 800, letterSpacing: 1.5, fontSize: '0.85rem' }}>STERLING BANK</Typography>

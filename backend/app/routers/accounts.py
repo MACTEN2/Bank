@@ -2,23 +2,53 @@ from fastapi import APIRouter, HTTPException, Depends, status
 from app.controllers.account_controller import AccountController
 from app.utils.auth_utils import get_current_user
 from bson import ObjectId
-from app.database import account_collection 
+from app.database import account_collection
+from app.services.notifications import create_notification
 
 router = APIRouter()
 
 @router.get("/me")
 async def get_my_account(current_user: dict = Depends(get_current_user)):
     account = await account_collection.find_one({"user_id": current_user["_id"]})
-    
+
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
-    
+
     # THE FIX: Convert ALL potential ObjectIds to strings
     account["_id"] = str(account["_id"])
     if "user_id" in account:
         account["user_id"] = str(account["user_id"])
-        
+
     return account
+
+
+# Self-service card lock — must stay above the /{id} route (like /me above)
+# so "lock" isn't swallowed as a dynamic account ID.
+@router.post("/lock")
+async def toggle_own_account_lock(current_user: dict = Depends(get_current_user)):
+    account = await account_collection.find_one({"user_id": current_user["_id"]})
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    new_status = "active" if account.get("status") == "frozen" else "frozen"
+    frozen_reason = "Locked by cardholder" if new_status == "frozen" else None
+
+    await account_collection.update_one(
+        {"_id": account["_id"]},
+        {"$set": {"status": new_status, "frozen_reason": frozen_reason}}
+    )
+
+    await create_notification(
+        current_user["_id"],
+        "card_lock" if new_status == "frozen" else "card_unlock",
+        "Card locked" if new_status == "frozen" else "Card unlocked",
+        "Your card was locked — deposits, withdrawals, and transfers are paused until you unlock it."
+        if new_status == "frozen" else
+        "Your card was unlocked and can be used normally again."
+    )
+
+    return {"message": f"Card is now {new_status}", "status": new_status, "frozen_reason": frozen_reason}
+
 
 # 2. Dynamic ID route comes AFTER static routes
 @router.get("/{id}")
@@ -70,6 +100,7 @@ async def transfer_money(payload: dict, current_user: dict = Depends(get_current
 
     to_id = payload.get("to_account_id")  # This should be the recipient's Account ID
     amount = payload.get("amount")
+    category = payload.get("category")
 
     if not to_id or not ObjectId.is_valid(to_id):
         raise HTTPException(status_code=400, detail="Invalid recipient account ID")
@@ -82,4 +113,4 @@ async def transfer_money(payload: dict, current_user: dict = Depends(get_current
     except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail="Amount must be a number")
 
-    return await AccountController.transfer(str(from_account["_id"]), to_id, amount)
+    return await AccountController.transfer(str(from_account["_id"]), to_id, amount, category)

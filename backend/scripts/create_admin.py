@@ -20,6 +20,7 @@ from app.utils.auth_utils import hash_password
 
 
 async def create_admin(name: str, email: str, password: str):
+    email = email.strip().lower()
     existing = await user_collection.find_one({"email": email})
     if existing:
         if existing.get("role") == "admin":

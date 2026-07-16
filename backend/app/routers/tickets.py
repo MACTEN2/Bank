@@ -3,6 +3,7 @@ from bson import ObjectId
 from datetime import datetime, timezone
 from app.database import ticket_collection
 from app.utils.auth_utils import get_current_user, admin_required
+from app.services.notifications import create_notification
 
 router = APIRouter()
 
@@ -11,6 +12,29 @@ def serialize_ticket(t):
     t["_id"] = str(t["_id"])
     t["user_id"] = str(t["user_id"])
     return t
+
+
+async def insert_ticket(current_user: dict, subject: str, message: str):
+    """Shared by the manual ticket form and the AI chat escalation tool so
+    both create the exact same document shape."""
+    now = datetime.now(timezone.utc)
+    ticket = {
+        "user_id": current_user["_id"],
+        "user_email": current_user["email"],
+        "subject": subject,
+        "status": "open",
+        "created_at": now,
+        "updated_at": now,
+        "messages": [{
+            "sender": "user",
+            "sender_name": current_user.get("name", "Customer"),
+            "text": message,
+            "created_at": now,
+        }],
+    }
+    result = await ticket_collection.insert_one(ticket)
+    ticket["_id"] = result.inserted_id
+    return serialize_ticket(ticket)
 
 
 async def get_ticket_or_404(ticket_id: str):
@@ -36,24 +60,7 @@ async def create_ticket(payload: dict, current_user: dict = Depends(get_current_
     if not subject or not message:
         raise HTTPException(status_code=400, detail="Subject and message are required")
 
-    now = datetime.now(timezone.utc)
-    ticket = {
-        "user_id": current_user["_id"],
-        "user_email": current_user["email"],
-        "subject": subject,
-        "status": "open",
-        "created_at": now,
-        "updated_at": now,
-        "messages": [{
-            "sender": "user",
-            "sender_name": current_user.get("name", "Customer"),
-            "text": message,
-            "created_at": now,
-        }],
-    }
-    result = await ticket_collection.insert_one(ticket)
-    ticket["_id"] = result.inserted_id
-    return serialize_ticket(ticket)
+    return await insert_ticket(current_user, subject, message)
 
 
 @router.get("/me")
@@ -99,6 +106,13 @@ async def add_message(ticket_id: str, payload: dict, current_user: dict = Depend
 
     await ticket_collection.update_one({"_id": ticket["_id"]}, update)
     updated = await ticket_collection.find_one({"_id": ticket["_id"]})
+
+    if is_admin:
+        await create_notification(
+            ticket["user_id"], "ticket_reply", "New reply on your support ticket",
+            f"Our support team replied to your ticket \"{ticket['subject']}\"."
+        )
+
     return serialize_ticket(updated)
 
 
