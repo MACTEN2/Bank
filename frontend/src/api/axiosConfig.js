@@ -1,7 +1,11 @@
 import axios from 'axios';
 
+// Set REACT_APP_API_BASE_URL in the frontend's Vercel project settings to
+// the deployed backend's URL (e.g. https://your-backend.vercel.app/api).
+// CRA only inlines REACT_APP_* vars at build time, so this must be set
+// before each deploy, not read at runtime.
 const api = axios.create({
-  baseURL: 'http://localhost:8000/api',
+  baseURL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api',
 });
 
 // Automatically add JWT to every request

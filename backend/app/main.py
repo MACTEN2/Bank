@@ -45,9 +45,16 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 app.add_middleware(
     CORSMiddleware,
-    # Matches any localhost port so the frontend still works if 3000 is
-    # already taken by another project and react-scripts picks a different one.
-    allow_origin_regex=r"http://localhost:\d+",
+    # Matches any localhost port (so the frontend still works if 3000 is
+    # already taken by another project) plus any Vercel deployment domain
+    # (production + preview URLs), since the frontend's exact URL isn't known
+    # until after it's first deployed. Override with FRONTEND_ORIGIN_REGEX in
+    # the backend's Vercel project settings once you want to lock this down
+    # to your specific frontend domain.
+    allow_origin_regex=os.getenv(
+        "FRONTEND_ORIGIN_REGEX",
+        r"http://localhost:\d+|https://.*\.vercel\.app",
+    ),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
