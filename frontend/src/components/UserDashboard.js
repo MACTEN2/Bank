@@ -232,7 +232,7 @@ const UserDashboard = () => {
 
   return (
     <DashboardLayout>
-      <Container maxWidth="lg" sx={{ py: 6 }}>
+      <Container maxWidth={false} sx={{ py: 6, maxWidth: { xs: '100%', xl: 1800 }, mx: 'auto' }}>
         {/* Personalized Greeting */}
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
           <Box sx={{ mb: 4 }}>
@@ -265,7 +265,7 @@ const UserDashboard = () => {
         {/* Two consistent columns: everything "mine" on the left, everything
             "actionable" on the right, so edges line up top to bottom. */}
         <Grid container spacing={4}>
-          <Grid item xs={12} md={5}>
+          <Grid item xs={12} md={5} lg={4}>
             <Stack spacing={4}>
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
                 <Card elevation={6} sx={{ background: 'linear-gradient(135deg, #1a4388 0%, #061126 100%)', color: 'white', borderRadius: '28px', p: 2 }}>
@@ -330,90 +330,98 @@ const UserDashboard = () => {
             </Stack>
           </Grid>
 
-          <Grid item xs={12} md={7}>
+          <Grid item xs={12} md={7} lg={8}>
             <Stack spacing={4}>
-              <Paper elevation={0} sx={{ p: 4, borderRadius: '28px', border: '1px solid', borderColor: 'divider' }}>
-                <Typography variant="h6" sx={{ fontWeight: 800, mb: 3 }}>Move Money</Typography>
-                <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                  {ACTIONS.map((type) => (
-                    <Button
-                      key={type}
-                      variant={activeAction === type ? 'contained' : 'outlined'}
-                      onClick={() => setActiveAction(type)}
-                      sx={{
-                        borderRadius: '12px', px: 4, fontWeight: 700, textTransform: 'capitalize', transition: '0.3s',
-                        ...(activeAction === type && { bgcolor: '#0d2144', '&:hover': { bgcolor: '#14346b' } })
-                      }}
-                    >
-                      {type}
-                    </Button>
-                  ))}
-                </Box>
+              {/* Side by side once there's enough width to spare (xl+); stacked
+                  full-width below that, same as before. */}
+              <Grid container spacing={4}>
+                <Grid item xs={12} xl={6}>
+                  <Paper elevation={0} sx={{ p: 4, borderRadius: '28px', border: '1px solid', borderColor: 'divider', height: '100%' }}>
+                    <Typography variant="h6" sx={{ fontWeight: 800, mb: 3 }}>Move Money</Typography>
+                    <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                      {ACTIONS.map((type) => (
+                        <Button
+                          key={type}
+                          variant={activeAction === type ? 'contained' : 'outlined'}
+                          onClick={() => setActiveAction(type)}
+                          sx={{
+                            borderRadius: '12px', px: 4, fontWeight: 700, textTransform: 'capitalize', transition: '0.3s',
+                            ...(activeAction === type && { bgcolor: '#0d2144', '&:hover': { bgcolor: '#14346b' } })
+                          }}
+                        >
+                          {type}
+                        </Button>
+                      ))}
+                    </Box>
 
-                {activeAction === 'transfer' && beneficiaries.length > 0 && (
-                  <TextField
-                    select
-                    fullWidth
-                    label="Saved recipient (optional)"
-                    value=""
-                    onChange={(e) => setRecipientId(e.target.value)}
-                    sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-                  >
-                    {beneficiaries.map((b) => (
-                      <MenuItem key={b._id} value={b.account_id}>{b.nickname}</MenuItem>
-                    ))}
-                  </TextField>
-                )}
+                    {activeAction === 'transfer' && beneficiaries.length > 0 && (
+                      <TextField
+                        select
+                        fullWidth
+                        label="Saved recipient (optional)"
+                        value=""
+                        onChange={(e) => setRecipientId(e.target.value)}
+                        sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
+                      >
+                        {beneficiaries.map((b) => (
+                          <MenuItem key={b._id} value={b.account_id}>{b.nickname}</MenuItem>
+                        ))}
+                      </TextField>
+                    )}
 
-                {activeAction === 'transfer' && (
-                  <TextField
-                    fullWidth
-                    label="Recipient Account ID"
-                    value={recipientId}
-                    onChange={(e) => setRecipientId(e.target.value)}
-                    placeholder="Paste the recipient's account ID, or pick a saved recipient above"
-                    sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-                  />
-                )}
+                    {activeAction === 'transfer' && (
+                      <TextField
+                        fullWidth
+                        label="Recipient Account ID"
+                        value={recipientId}
+                        onChange={(e) => setRecipientId(e.target.value)}
+                        placeholder="Paste the recipient's account ID, or pick a saved recipient above"
+                        sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
+                      />
+                    )}
 
-                {activeAction !== 'deposit' && (
-                  <TextField
-                    select
-                    fullWidth
-                    label="Category (optional)"
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-                  >
-                    <MenuItem value="">No category</MenuItem>
-                    {SPENDING_CATEGORIES.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
-                  </TextField>
-                )}
+                    {activeAction !== 'deposit' && (
+                      <TextField
+                        select
+                        fullWidth
+                        label="Category (optional)"
+                        value={category}
+                        onChange={(e) => setCategory(e.target.value)}
+                        sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
+                      >
+                        <MenuItem value="">No category</MenuItem>
+                        {SPENDING_CATEGORIES.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                      </TextField>
+                    )}
 
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                  <TextField
-                    fullWidth
-                    label="Transaction Amount"
-                    type="number"
-                    value={amount}
-                    onChange={(e)=>setAmount(e.target.value)}
-                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-                  />
-                  <Button
-                    variant="contained"
-                    onClick={handleAction}
-                    disabled={submitting}
-                    sx={{ minWidth: '140px', borderRadius: '12px', bgcolor: '#0d2144', fontWeight: 700, textTransform: 'none', '&:hover': { bgcolor: '#14346b' } }}
-                  >
-                    {submitting ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : 'Confirm'}
-                  </Button>
-                </Box>
-              </Paper>
+                    <Box sx={{ display: 'flex', gap: 2 }}>
+                      <TextField
+                        fullWidth
+                        label="Transaction Amount"
+                        type="number"
+                        value={amount}
+                        onChange={(e)=>setAmount(e.target.value)}
+                        InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
+                      />
+                      <Button
+                        variant="contained"
+                        onClick={handleAction}
+                        disabled={submitting}
+                        sx={{ minWidth: '140px', borderRadius: '12px', bgcolor: '#0d2144', fontWeight: 700, textTransform: 'none', '&:hover': { bgcolor: '#14346b' } }}
+                      >
+                        {submitting ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : 'Confirm'}
+                      </Button>
+                    </Box>
+                  </Paper>
+                </Grid>
 
-              <Paper elevation={0} sx={{ p: 4, borderRadius: '28px', border: '1px solid', borderColor: 'divider' }}>
-                <SpendingChart transactions={transactions} />
-              </Paper>
+                <Grid item xs={12} xl={6}>
+                  <Paper elevation={0} sx={{ p: 4, borderRadius: '28px', border: '1px solid', borderColor: 'divider', height: '100%' }}>
+                    <SpendingChart transactions={transactions} />
+                  </Paper>
+                </Grid>
+              </Grid>
 
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
                 <Paper elevation={0} sx={{ borderRadius: '28px', border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>

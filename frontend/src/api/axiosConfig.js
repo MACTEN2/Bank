@@ -17,4 +17,18 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// A 401 here means the token is missing/expired/invalid — bounce to login
+// instead of leaving the UI stuck on a raw "Could not validate credentials"
+// error with no way forward.
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && window.location.pathname !== '/login') {
+      localStorage.clear();
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;

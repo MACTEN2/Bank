@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container, Typography, Paper, Table, TableBody, TableCell, TableHead,
   TableRow, Button, Box, CircularProgress, Alert, Tabs, Tab, TextField, Grid, Card, CardContent,
-  Chip, Dialog, DialogTitle, DialogContent, Divider,
+  Chip, Dialog, DialogTitle, DialogContent, DialogActions, Divider, IconButton, Tooltip,
   ToggleButtonGroup, ToggleButton
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
@@ -12,11 +12,13 @@ import PeopleIcon from '@mui/icons-material/People';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import SupportAgentIcon from '@mui/icons-material/SupportAgent';
+import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import { useThemeMode, headingColor } from '../ThemeModeContext';
 import {
   getAllUsers, getAllAccounts, getAccountTransactions, adjustAccountBalance,
-  toggleAccountFreeze, updateUserRole, getTransactionFeed
+  toggleAccountFreeze, terminateAccount, updateUserRole, getTransactionFeed
 } from '../api/adminService';
 import { getAllTickets, addTicketMessage, resolveTicket } from '../api/ticketService';
 import { getAxiosErrorMessage } from '../utils/apiError';
@@ -24,6 +26,25 @@ import TicketThread from './TicketThread';
 import DashboardLayout from './DashboardLayout';
 
 const isDebitType = (txnType) => txnType === 'withdrawal' || txnType === 'admin_debit';
+
+// Masks all but the last 4 characters — same convention as the debit card
+// number on the user side (see DebitCard.js).
+const maskId = (id) => (id ? '•'.repeat(Math.max(id.length - 4, 0)) + id.slice(-4) : '');
+
+// Account IDs are hidden by default (handy when screen-sharing/demoing) and
+// can be revealed per-row via the eye icon; clicking again hides them.
+const MaskedAccountId = ({ id, visible, onToggle, sx }) => (
+  <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, ...sx }}>
+    <Typography component="span" sx={{ fontFamily: 'monospace', fontSize: 'inherit', color: 'inherit' }}>
+      {visible ? id : maskId(id)}
+    </Typography>
+    <Tooltip title={visible ? 'Hide account ID' : 'Show account ID'}>
+      <IconButton size="small" onClick={onToggle} sx={{ p: 0.4 }}>
+        {visible ? <VisibilityOffIcon sx={{ fontSize: 16 }} /> : <VisibilityIcon sx={{ fontSize: 16 }} />}
+      </IconButton>
+    </Tooltip>
+  </Box>
+);
 
 const AdminDashboard = () => {
   const { mode } = useThemeMode();
@@ -37,6 +58,18 @@ const AdminDashboard = () => {
   const [error, setError] = useState('');
   const [freezingId, setFreezingId] = useState(null);
   const [roleUpdatingId, setRoleUpdatingId] = useState(null);
+  const [terminatingId, setTerminatingId] = useState(null);
+  const [confirmTerminateOpen, setConfirmTerminateOpen] = useState(false);
+
+  // Account IDs are masked by default; tracks which ones have been revealed.
+  const [visibleAccountIds, setVisibleAccountIds] = useState(new Set());
+  const toggleAccountIdVisibility = (id) => {
+    setVisibleAccountIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
   // Account detail dialog
   const [selectedAccount, setSelectedAccount] = useState(null);
@@ -91,6 +124,24 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleTerminateAccount = async () => {
+    if (!selectedAccount) return;
+    const accountId = selectedAccount._id;
+    setTerminatingId(accountId);
+    setDialogMsg(null);
+    try {
+      const res = await terminateAccount(accountId);
+      setAccounts((prev) => prev.map((a) => (a._id === accountId ? { ...a, status: res.data.status } : a)));
+      setSelectedAccount((prev) => ({ ...prev, status: res.data.status }));
+      setDialogMsg({ type: 'success', text: 'Account terminated. It can no longer send, receive, or process transactions.' });
+    } catch (err) {
+      setDialogMsg({ type: 'error', text: getAxiosErrorMessage(err, 'Could not terminate this account.') });
+    } finally {
+      setTerminatingId(null);
+      setConfirmTerminateOpen(false);
+    }
+  };
+
   const handleUpdateRole = async (userId, newRole) => {
     setRoleUpdatingId(userId);
     try {
@@ -110,6 +161,7 @@ const AdminDashboard = () => {
     setAdjustReason('');
     setAdjustType('credit');
     setDialogMsg(null);
+    setConfirmTerminateOpen(false);
     setAccountTxLoading(true);
     try {
       const res = await getAccountTransactions(account._id);
@@ -335,16 +387,22 @@ const AdminDashboard = () => {
               {filteredAccounts.map((item) => (
                 <TableRow key={item._id} hover>
                   <TableCell sx={{ fontWeight: 'bold', color: '#1a4388' }}>{getUserEmail(item.user_id)}</TableCell>
-                  <TableCell sx={{ fontSize: '0.8rem', color: 'gray' }}>{item._id}</TableCell>
+                  <TableCell sx={{ fontSize: '0.8rem', color: 'gray' }}>
+                    <MaskedAccountId
+                      id={item._id}
+                      visible={visibleAccountIds.has(item._id)}
+                      onToggle={() => toggleAccountIdVisibility(item._id)}
+                    />
+                  </TableCell>
                   <TableCell sx={{ fontWeight: 'bold', color: item.balance < 0 ? '#d32f2f' : '#2e7d32' }}>
                     ${(item.balance || 0).toLocaleString()}
                   </TableCell>
                   <TableCell>{item.account_type || "Checking"}</TableCell>
                   <TableCell>
                     <Chip
-                      label={item.status === 'frozen' ? 'Frozen' : 'Active'}
+                      label={item.status === 'terminated' ? 'Terminated' : item.status === 'frozen' ? 'Frozen' : 'Active'}
                       size="small"
-                      color={item.status === 'frozen' ? 'error' : 'success'}
+                      color={item.status === 'terminated' ? 'default' : item.status === 'frozen' ? 'error' : 'success'}
                       variant="outlined"
                     />
                   </TableCell>
@@ -433,9 +491,18 @@ const AdminDashboard = () => {
         <>
           <DialogTitle sx={{ fontWeight: 800 }}>
             {getUserEmail(selectedAccount.user_id)}
-            <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 400 }}>
-              Account {selectedAccount._id} · Balance ${(selectedAccount.balance || 0).toLocaleString()}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5, color: 'text.secondary', fontWeight: 400 }}>
+              <Typography component="span" variant="body2">Account</Typography>
+              <MaskedAccountId
+                id={selectedAccount._id}
+                visible={visibleAccountIds.has(selectedAccount._id)}
+                onToggle={() => toggleAccountIdVisibility(selectedAccount._id)}
+                sx={{ fontSize: '0.875rem' }}
+              />
+              <Typography component="span" variant="body2">
+                · Balance ${(selectedAccount.balance || 0).toLocaleString()}
+              </Typography>
+            </Box>
           </DialogTitle>
           <DialogContent dividers>
             {dialogMsg && <Alert severity={dialogMsg.type} sx={{ mb: 2 }}>{dialogMsg.text}</Alert>}
@@ -489,37 +556,84 @@ const AdminDashboard = () => {
             <Divider sx={{ my: 3 }} />
 
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Account Status</Typography>
-            {selectedAccount.status === 'frozen' ? (
-              <Box>
-                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
-                  Frozen{selectedAccount.frozen_reason ? ` — ${selectedAccount.frozen_reason}` : ''}
+            {selectedAccount.status === 'terminated' ? (
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                This account has been terminated and can no longer send, receive, or process transactions.
+              </Typography>
+            ) : (
+              <>
+                {selectedAccount.status === 'frozen' ? (
+                  <Box>
+                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
+                      Frozen{selectedAccount.frozen_reason ? ` — ${selectedAccount.frozen_reason}` : ''}
+                    </Typography>
+                    <Button
+                      startIcon={<LockOpenIcon />} variant="outlined" color="success"
+                      disabled={freezingId === selectedAccount._id}
+                      onClick={() => handleToggleFreeze(selectedAccount._id)}
+                    >
+                      Unfreeze account
+                    </Button>
+                  </Box>
+                ) : (
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <TextField
+                      size="small" label="Reason (e.g. card reported lost/stolen)" value={freezeReason}
+                      onChange={(e) => setFreezeReason(e.target.value)} sx={{ flex: 1 }}
+                    />
+                    <Button
+                      startIcon={<LockIcon />} variant="outlined" color="error"
+                      disabled={freezingId === selectedAccount._id}
+                      onClick={() => handleToggleFreeze(selectedAccount._id, freezeReason.trim() || undefined)}
+                    >
+                      Freeze
+                    </Button>
+                  </Box>
+                )}
+
+                <Divider sx={{ my: 2 }} />
+
+                <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', mb: 1 }}>
+                  Danger zone — this permanently closes the account. It cannot be undone.
                 </Typography>
                 <Button
-                  startIcon={<LockOpenIcon />} variant="outlined" color="success"
-                  disabled={freezingId === selectedAccount._id}
-                  onClick={() => handleToggleFreeze(selectedAccount._id)}
+                  startIcon={<DeleteForeverIcon />} variant="outlined" color="error"
+                  disabled={(selectedAccount.balance || 0) !== 0 || terminatingId === selectedAccount._id}
+                  onClick={() => setConfirmTerminateOpen(true)}
                 >
-                  Unfreeze account
+                  Terminate account
                 </Button>
-              </Box>
-            ) : (
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <TextField
-                  size="small" label="Reason (e.g. card reported lost/stolen)" value={freezeReason}
-                  onChange={(e) => setFreezeReason(e.target.value)} sx={{ flex: 1 }}
-                />
-                <Button
-                  startIcon={<LockIcon />} variant="outlined" color="error"
-                  disabled={freezingId === selectedAccount._id}
-                  onClick={() => handleToggleFreeze(selectedAccount._id, freezeReason.trim() || undefined)}
-                >
-                  Freeze
-                </Button>
-              </Box>
+                {(selectedAccount.balance || 0) !== 0 && (
+                  <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', mt: 0.5 }}>
+                    Balance must be $0 to terminate — settle it with a manual adjustment above first.
+                  </Typography>
+                )}
+              </>
             )}
           </DialogContent>
         </>
       )}
+    </Dialog>
+
+    {/* Terminate Account Confirmation */}
+    <Dialog open={confirmTerminateOpen} onClose={() => setConfirmTerminateOpen(false)} maxWidth="xs" fullWidth>
+      <DialogTitle sx={{ fontWeight: 800 }}>Terminate this account?</DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+          This permanently closes {selectedAccount ? getUserEmail(selectedAccount.user_id) : 'this'}'s account.
+          It will no longer be able to send, receive, or process any transactions. This action cannot be undone.
+        </Typography>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={() => setConfirmTerminateOpen(false)}>Cancel</Button>
+        <Button
+          variant="contained" color="error"
+          disabled={terminatingId === selectedAccount?._id}
+          onClick={handleTerminateAccount}
+        >
+          {terminatingId === selectedAccount?._id ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : 'Terminate account'}
+        </Button>
+      </DialogActions>
     </Dialog>
 
     {/* Ticket Dialog */}

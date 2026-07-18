@@ -17,6 +17,8 @@ class AccountController:
         account = await AccountModel.find_by_id(acc_id)
         if account.get("status") == "frozen":
             raise HTTPException(status_code=403, detail="This account is frozen and cannot process transactions")
+        if account.get("status") == "terminated":
+            raise HTTPException(status_code=403, detail="This account has been terminated and can no longer process transactions")
         new_balance = account["balance"] + amount
 
         await AccountModel.update_balance(acc_id, new_balance)
@@ -33,6 +35,8 @@ class AccountController:
         account = await AccountModel.find_by_id(acc_id)
         if account.get("status") == "frozen":
             raise HTTPException(status_code=403, detail="This account is frozen and cannot process transactions")
+        if account.get("status") == "terminated":
+            raise HTTPException(status_code=403, detail="This account has been terminated and can no longer process transactions")
         if account["balance"] < amount:
             raise HTTPException(status_code=400, detail="Insufficient funds")
 

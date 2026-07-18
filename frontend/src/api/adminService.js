@@ -13,6 +13,9 @@ export const adjustAccountBalance = (accountId, amount, type, reason) =>
 export const toggleAccountFreeze = (accountId, reason) =>
   api.post(`/admin/accounts/${accountId}/freeze`, reason ? { reason } : {});
 
+export const terminateAccount = (accountId, reason) =>
+  api.post(`/admin/accounts/${accountId}/terminate`, reason ? { reason } : {});
+
 export const updateUserRole = (userId, role) =>
   api.patch(`/admin/users/${userId}/role`, { role });
 

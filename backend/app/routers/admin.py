@@ -88,6 +88,42 @@ async def toggle_account_freeze(account_id: str, payload: dict = Body(default={}
     return {"message": f"Account is now {new_status}", "status": new_status, "frozen_reason": frozen_reason}
 
 
+@router.post("/accounts/{account_id}/terminate", status_code=200)
+async def terminate_account(account_id: str, payload: dict = Body(default={}), admin: dict = Depends(admin_required)):
+    """Admin-only: permanently close an account. One-way — there's no
+    'reactivate', unlike freeze/unfreeze. Requires a zero balance first so
+    funds can't just vanish; the admin has to settle the balance (refund or
+    sweep it via a manual adjustment) before closing it out."""
+    if not ObjectId.is_valid(account_id):
+        raise HTTPException(status_code=400, detail="Invalid account ID")
+
+    account = await account_collection.find_one({"_id": ObjectId(account_id)})
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    if account.get("status") == "terminated":
+        raise HTTPException(status_code=400, detail="Account is already terminated")
+
+    if account.get("balance", 0) != 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Account balance must be $0 before it can be terminated. Settle the balance with a manual adjustment first.",
+        )
+
+    reason = (payload or {}).get("reason") or None
+
+    await account_collection.update_one(
+        {"_id": ObjectId(account_id)},
+        {"$set": {
+            "status": "terminated",
+            "frozen_reason": None,
+            "terminated_reason": reason,
+            "terminated_at": datetime.utcnow(),
+        }}
+    )
+    return {"message": "Account terminated", "status": "terminated"}
+
+
 @router.patch("/users/{user_id}/role", status_code=200)
 async def update_user_role(user_id: str, payload: dict, admin: dict = Depends(admin_required)):
     """Admin-only: promote a user to admin, or demote an admin back to user."""
